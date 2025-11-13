@@ -12,7 +12,7 @@ class RequestLister
      * Get all requests
      *
      * @param array $filters Optional filters (status, process_id, user_id, etc.)
-     * @param int $perPage Number of items per page
+     * @param int $perPage Number of items per page (0 for all)
      * @param int $page Page number
      * @return array
      */
@@ -35,42 +35,6 @@ class RequestLister
         } catch (\Exception $e) {
             return null;
         }
-    }
-
-    /**
-     * Get requests by status
-     *
-     * @param string $status Status (ACTIVE, COMPLETED, etc.)
-     * @param int $perPage
-     * @return array
-     */
-    public static function byStatus(string $status, int $perPage = 10)
-    {
-        return self::all(['status' => $status], $perPage);
-    }
-
-    /**
-     * Get requests by process ID
-     *
-     * @param string|int $processId Process ID
-     * @param int $perPage
-     * @return array
-     */
-    public static function byProcess($processId, int $perPage = 10)
-    {
-        return self::all(['process_id' => $processId], $perPage);
-    }
-
-    /**
-     * Get requests by user ID
-     *
-     * @param string|int $userId User ID
-     * @param int $perPage
-     * @return array
-     */
-    public static function byUser($userId, int $perPage = 10)
-    {
-        return self::all(['user_id' => $userId], $perPage);
     }
 
     /**
