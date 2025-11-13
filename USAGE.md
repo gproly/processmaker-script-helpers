@@ -7,6 +7,10 @@ Este documento explica cómo usar las clases helper del paquete `processmaker/sc
 1. El paquete debe estar instalado en el script-executor (ver `INSTALLATION.md`)
 2. El script-executor debe estar reconstruido después de instalar el paquete
 
+## Nota Importante
+
+**Las clases devuelven arrays, no objetos Eloquent.** Los métodos `all()`, `find()`, etc. devuelven arrays asociativos con los datos de la API de ProcessMaker. Para acceder a los datos, usa sintaxis de array: `$request['id']` en lugar de `$request->id`.
+
 ## Importar las Clases
 
 En tus Script Tasks, importa las clases que necesites usando `use`:
@@ -77,10 +81,10 @@ $request = RequestLister::find(789);
 
 if ($request) {
     return [
-        'id' => $request->id,
-        'case_number' => $request->case_number,
-        'status' => $request->status,
-        'process_id' => $request->process_id
+        'id' => $request['id'],
+        'case_number' => $request['case_number'],
+        'status' => $request['status'],
+        'process_id' => $request['process_id']
     ];
 }
 ```
@@ -158,11 +162,11 @@ $task = TaskLister::find(101112);
 
 if ($task) {
     return [
-        'id' => $task->id,
-        'status' => $task->status,
-        'user_id' => $task->user_id,
-        'due_at' => $task->due_at,
-        'element_name' => $task->element_name
+        'id' => $task['id'],
+        'status' => $task['status'],
+        'user_id' => $task['user_id'],
+        'due_at' => $task['due_at'],
+        'element_name' => $task['element_name']
     ];
 }
 ```
@@ -292,16 +296,19 @@ $pendingTasks = TaskLister::all([
     'order_direction' => 'asc'
 ], 10);
 
+// Extract data from API response
+$tasksData = isset($pendingTasks['data']) ? $pendingTasks['data'] : $pendingTasks;
+
 return [
-    'count' => count($pendingTasks),
-    'tasks' => $pendingTasks->map(function($task) {
+    'count' => count($tasksData),
+    'tasks' => array_map(function($task) {
         return [
-            'id' => $task->id,
-            'element_name' => $task->element_name,
-            'due_at' => $task->due_at,
-            'process_request_id' => $task->process_request_id
+            'id' => $task['id'],
+            'element_name' => $task['element_name'],
+            'due_at' => $task['due_at'],
+            'process_request_id' => $task['process_request_id']
         ];
-    })
+    }, $tasksData)
 ];
 ```
 
@@ -316,19 +323,20 @@ use ProcessMaker\ScriptHelpers\TaskLister;
 $searchTerm = $searchTerm ?? 'john';
 $users = UserLister::search($searchTerm, 5);
 
+$usersData = isset($users['data']) ? $users['data'] : $users;
 $result = [];
-foreach ($users as $user) {
+foreach ($usersData as $user) {
     $taskCount = TaskLister::count([
-        'user_id' => $user->id,
+        'user_id' => $user['id'],
         'status' => 'ACTIVE'
     ]);
     
     $result[] = [
         'user' => [
-            'id' => $user->id,
-            'username' => $user->username,
-            'fullname' => $user->firstname . ' ' . $user->lastname,
-            'email' => $user->email
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'fullname' => $user['firstname'] . ' ' . $user['lastname'],
+            'email' => $user['email']
         ],
         'active_tasks' => $taskCount
     ];
@@ -360,23 +368,25 @@ if (!$request) {
 // Obtener las tareas del request
 $tasks = TaskLister::byRequest($requestId);
 
+$tasksData = isset($tasks['data']) ? $tasks['data'] : $tasks;
+
 return [
     'request' => [
-        'id' => $request->id,
-        'case_number' => $request->case_number,
-        'status' => $request->status,
-        'process_id' => $request->process_id,
-        'created_at' => $request->created_at
+        'id' => $request['id'],
+        'case_number' => $request['case_number'],
+        'status' => $request['status'],
+        'process_id' => $request['process_id'],
+        'created_at' => $request['created_at']
     ],
-    'tasks' => $tasks->map(function($task) {
+    'tasks' => array_map(function($task) {
         return [
-            'id' => $task->id,
-            'status' => $task->status,
-            'element_name' => $task->element_name,
-            'user_id' => $task->user_id,
-            'due_at' => $task->due_at
+            'id' => $task['id'],
+            'status' => $task['status'],
+            'element_name' => $task['element_name'],
+            'user_id' => $task['user_id'],
+            'due_at' => $task['due_at']
         ];
-    })
+    }, $tasksData)
 ];
 ```
 
@@ -388,10 +398,11 @@ return [
 
 3. **Ordenamiento**: Usa `order_by` y `order_direction` en el array de filtros para ordenar los resultados.
 
-4. **Retorno**: Los métodos pueden devolver:
-   - `LengthAwarePaginator` cuando hay paginación
-   - `Collection` cuando no hay paginación o se usa `get()`
-   - `Model` cuando se busca un elemento específico con `find()`
+4. **Retorno**: Los métodos devuelven arrays:
+   - Array con estructura `['data' => [...], 'meta' => [...]]` cuando hay paginación
+   - Array simple de elementos cuando no hay paginación
+   - Array asociativo cuando se busca un elemento específico con `find()`
+   - `null` si no se encuentra el elemento
 
 5. **Contexto del Script**: Asegúrate de tener acceso a las variables necesarias (como `$userId`, `$requestId`, etc.) desde el contexto del proceso.
 

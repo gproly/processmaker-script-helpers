@@ -2,10 +2,9 @@
 
 namespace ProcessMaker\ScriptHelpers;
 
-use ProcessMaker\Models\ProcessRequestToken;
-
 /**
  * Helper class to list ProcessRequestTokens (Tasks) in script tasks
+ * Uses ProcessMaker API instead of Eloquent models
  */
 class TaskLister
 {
@@ -15,72 +14,27 @@ class TaskLister
      * @param array $filters Optional filters (status, user_id, process_id, etc.)
      * @param int $perPage Number of items per page
      * @param int $page Page number
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function all(array $filters = [], int $perPage = 10, int $page = 1)
     {
-        $query = ProcessRequestToken::query();
-
-        // Apply filters
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (isset($filters['user_id'])) {
-            $query->where('user_id', $filters['user_id']);
-        }
-
-        if (isset($filters['process_id'])) {
-            $query->where('process_id', $filters['process_id']);
-        }
-
-        if (isset($filters['process_request_id'])) {
-            $query->where('process_request_id', $filters['process_request_id']);
-        }
-
-        if (isset($filters['element_type'])) {
-            $query->where('element_type', $filters['element_type']);
-        }
-
-        if (isset($filters['element_name'])) {
-            $query->where('element_name', 'like', '%' . $filters['element_name'] . '%');
-        }
-
-        if (isset($filters['due_from'])) {
-            $query->where('due_at', '>=', $filters['due_from']);
-        }
-
-        if (isset($filters['due_to'])) {
-            $query->where('due_at', '<=', $filters['due_to']);
-        }
-
-        if (isset($filters['overdue']) && $filters['overdue']) {
-            $query->where('due_at', '<', now())
-                  ->where('status', 'ACTIVE');
-        }
-
-        // Order by
-        $orderBy = $filters['order_by'] ?? 'created_at';
-        $orderDirection = $filters['order_direction'] ?? 'desc';
-        $query->orderBy($orderBy, $orderDirection);
-
-        // Paginate or get all
-        if ($perPage > 0) {
-            return $query->paginate($perPage, ['*'], 'page', $page);
-        }
-
-        return $query->get();
+        $params = ApiClient::buildQueryParams($filters, $perPage, $page);
+        return ApiClient::get('/tasks', $params);
     }
 
     /**
      * Get a single task by ID
      *
      * @param string|int $id Task ID
-     * @return ProcessRequestToken|null
+     * @return array|null
      */
     public static function find($id)
     {
-        return ProcessRequestToken::find($id);
+        try {
+            return ApiClient::get("/tasks/{$id}");
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     /**
@@ -88,7 +42,7 @@ class TaskLister
      *
      * @param array $filters Additional filters
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function active(array $filters = [], int $perPage = 10)
     {
@@ -100,7 +54,7 @@ class TaskLister
      *
      * @param array $filters Additional filters
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function completed(array $filters = [], int $perPage = 10)
     {
@@ -112,7 +66,7 @@ class TaskLister
      *
      * @param string|int $userId User ID
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function byUser($userId, int $perPage = 10)
     {
@@ -124,7 +78,7 @@ class TaskLister
      *
      * @param string|int $requestId Process Request ID
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function byRequest($requestId, int $perPage = 10)
     {
@@ -136,10 +90,12 @@ class TaskLister
      *
      * @param array $filters Additional filters
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function overdue(array $filters = [], int $perPage = 10)
     {
+        // Note: Overdue filter might need to be handled differently in API
+        // This is a simplified version
         return self::all(array_merge($filters, ['overdue' => true]), $perPage);
     }
 
@@ -151,26 +107,17 @@ class TaskLister
      */
     public static function count(array $filters = []): int
     {
-        $query = ProcessRequestToken::query();
-
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+        // Get first page with per_page=1 to get total count from meta
+        $params = ApiClient::buildQueryParams($filters, 1, 1);
+        $result = ApiClient::get('/tasks', $params);
+        
+        // If result has meta with total, return it
+        if (isset($result['meta']['total'])) {
+            return (int) $result['meta']['total'];
         }
-
-        if (isset($filters['user_id'])) {
-            $query->where('user_id', $filters['user_id']);
-        }
-
-        if (isset($filters['process_id'])) {
-            $query->where('process_id', $filters['process_id']);
-        }
-
-        if (isset($filters['overdue']) && $filters['overdue']) {
-            $query->where('due_at', '<', now())
-                  ->where('status', 'ACTIVE');
-        }
-
-        return $query->count();
+        
+        // Otherwise, get all and count
+        $all = self::all($filters, 0);
+        return is_array($all) ? count($all) : 0;
     }
 }
-

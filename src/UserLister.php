@@ -2,10 +2,9 @@
 
 namespace ProcessMaker\ScriptHelpers;
 
-use ProcessMaker\Models\User;
-
 /**
  * Helper class to list Users in script tasks
+ * Uses ProcessMaker API instead of Eloquent models
  */
 class UserLister
 {
@@ -15,83 +14,61 @@ class UserLister
      * @param array $filters Optional filters (status, group_id, etc.)
      * @param int $perPage Number of items per page
      * @param int $page Page number
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function all(array $filters = [], int $perPage = 10, int $page = 1)
     {
-        $query = User::query();
-
-        // Apply filters
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (isset($filters['username'])) {
-            $query->where('username', 'like', '%' . $filters['username'] . '%');
-        }
-
-        if (isset($filters['firstname'])) {
-            $query->where('firstname', 'like', '%' . $filters['firstname'] . '%');
-        }
-
-        if (isset($filters['lastname'])) {
-            $query->where('lastname', 'like', '%' . $filters['lastname'] . '%');
-        }
-
-        if (isset($filters['email'])) {
-            $query->where('email', 'like', '%' . $filters['email'] . '%');
-        }
-
-        if (isset($filters['group_id'])) {
-            $query->whereHas('groups', function ($q) use ($filters) {
-                $q->where('groups.id', $filters['group_id']);
-            });
-        }
-
-        // Order by
-        $orderBy = $filters['order_by'] ?? 'username';
-        $orderDirection = $filters['order_direction'] ?? 'asc';
-        $query->orderBy($orderBy, $orderDirection);
-
-        // Paginate or get all
-        if ($perPage > 0) {
-            return $query->paginate($perPage, ['*'], 'page', $page);
-        }
-
-        return $query->get();
+        $params = ApiClient::buildQueryParams($filters, $perPage, $page);
+        return ApiClient::get('/users', $params);
     }
 
     /**
      * Get a single user by ID
      *
      * @param string|int $id User ID
-     * @return User|null
+     * @return array|null
      */
     public static function find($id)
     {
-        return User::find($id);
+        try {
+            return ApiClient::get("/users/{$id}");
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     /**
      * Get user by username
      *
      * @param string $username Username
-     * @return User|null
+     * @return array|null
      */
     public static function byUsername(string $username)
     {
-        return User::where('username', $username)->first();
+        $users = self::all(['username' => $username], 1);
+        
+        if (isset($users['data']) && is_array($users['data']) && count($users['data']) > 0) {
+            return $users['data'][0];
+        }
+        
+        return null;
     }
 
     /**
      * Get user by email
      *
      * @param string $email Email address
-     * @return User|null
+     * @return array|null
      */
     public static function byEmail(string $email)
     {
-        return User::where('email', $email)->first();
+        $users = self::all(['email' => $email], 1);
+        
+        if (isset($users['data']) && is_array($users['data']) && count($users['data']) > 0) {
+            return $users['data'][0];
+        }
+        
+        return null;
     }
 
     /**
@@ -99,7 +76,7 @@ class UserLister
      *
      * @param array $filters Additional filters
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function active(array $filters = [], int $perPage = 10)
     {
@@ -111,7 +88,7 @@ class UserLister
      *
      * @param string|int $groupId Group ID
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function byGroup($groupId, int $perPage = 10)
     {
@@ -123,23 +100,12 @@ class UserLister
      *
      * @param string $search Search term
      * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|\Illuminate\Database\Eloquent\Collection
+     * @return array
      */
     public static function search(string $search, int $perPage = 10)
     {
-        $query = User::query()
-            ->where(function ($q) use ($search) {
-                $q->where('username', 'like', '%' . $search . '%')
-                  ->orWhere('firstname', 'like', '%' . $search . '%')
-                  ->orWhere('lastname', 'like', '%' . $search . '%')
-                  ->orWhere('email', 'like', '%' . $search . '%');
-            });
-
-        if ($perPage > 0) {
-            return $query->paginate($perPage);
-        }
-
-        return $query->get();
+        // Use filter parameter for search
+        return self::all(['filter' => $search], $perPage);
     }
 
     /**
@@ -150,19 +116,17 @@ class UserLister
      */
     public static function count(array $filters = []): int
     {
-        $query = User::query();
-
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+        // Get first page with per_page=1 to get total count from meta
+        $params = ApiClient::buildQueryParams($filters, 1, 1);
+        $result = ApiClient::get('/users', $params);
+        
+        // If result has meta with total, return it
+        if (isset($result['meta']['total'])) {
+            return (int) $result['meta']['total'];
         }
-
-        if (isset($filters['group_id'])) {
-            $query->whereHas('groups', function ($q) use ($filters) {
-                $q->where('groups.id', $filters['group_id']);
-            });
-        }
-
-        return $query->count();
+        
+        // Otherwise, get all and count
+        $all = self::all($filters, 0);
+        return is_array($all) ? count($all) : 0;
     }
 }
-
