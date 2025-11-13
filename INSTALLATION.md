@@ -15,7 +15,8 @@ Para usar este paquete en los script tasks de ProcessMaker 4, necesitas instalar
 En el campo **Config** (que contiene instrucciones Dockerfile), agrega:
 
 ```dockerfile
-RUN composer require processmaker/script-helpers
+RUN composer config repositories.script-helpers vcs https://github.com/gproly/processmaker-script-helpers.git
+RUN composer require processmaker/script-helpers:dev-main
 ```
 
 **Ejemplo completo del campo Config:**
