@@ -21,41 +21,4 @@ class RequestLister
         //$params = ApiClient::buildQueryParams($filters, $perPage, $page);
         return ["hello world from RequestLister"]; //ApiClient::get('/requests', $params);
     }
-
-    /**
-     * Get a single request by ID
-     *
-     * @param string|int $id Request ID
-     * @return array|null
-     */
-    public static function find($id)
-    {
-        try {
-            return ApiClient::get("/requests/{$id}");
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Get count of requests
-     *
-     * @param array $filters Optional filters
-     * @return int
-     */
-    public static function count(array $filters = []): int
-    {
-        // Get first page with per_page=1 to get total count from meta
-        $params = ApiClient::buildQueryParams($filters, 1, 1);
-        $result = ApiClient::get('/requests', $params);
-        
-        // If result has meta with total, return it
-        if (isset($result['meta']['total'])) {
-            return (int) $result['meta']['total'];
-        }
-        
-        // Otherwise, get all and count
-        $all = self::all($filters, 0);
-        return is_array($all) ? count($all) : 0;
-    }
 }
