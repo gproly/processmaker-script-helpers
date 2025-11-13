@@ -18,8 +18,8 @@ class RequestLister
      */
     public static function all(array $filters = [], int $perPage = 10, int $page = 1)
     {
-        $params = ApiClient::buildQueryParams($filters, $perPage, $page);
-        return ApiClient::get('/requests', $params);
+        //$params = ApiClient::buildQueryParams($filters, $perPage, $page);
+        return ["hello world from RequestLister"]; //ApiClient::get('/requests', $params);
     }
 
     /**
