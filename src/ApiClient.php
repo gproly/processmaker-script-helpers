@@ -98,7 +98,7 @@ class ApiClient
      * @param int $page
      * @return array
      */
-    protected static function buildQueryParams(array $filters = [], $perPage = 10, $page = 1)
+    public static function buildQueryParams(array $filters = [], $perPage = 10, $page = 1)
     {
         $params = [];
         
