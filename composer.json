@@ -1,0 +1,23 @@
+{
+    "name": "processmaker/script-helpers",
+    "description": "Helper classes to list requests, tasks, and users in ProcessMaker 4 script tasks",
+    "type": "library",
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "ProcessMaker",
+            "email": "devops@processmaker.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "ProcessMaker\\ScriptHelpers\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+
